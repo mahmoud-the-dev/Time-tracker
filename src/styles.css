@@ -207,13 +207,6 @@ a:focus-visible {
   background: #fffdf7;
 }
 
-.topbar-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .file-input {
   display: none;
 }
@@ -221,9 +214,29 @@ a:focus-visible {
 .content {
   width: min(1500px, calc(100% - 44px));
   margin: 0 auto;
-  padding: 42px 0 70px;
+  padding: 42px 0 20px;
   position: relative;
   z-index: 1;
+}
+
+.bottom-data-actions {
+  width: min(1500px, calc(100% - 44px));
+  min-height: 64px;
+  margin: 0 auto 22px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(22, 32, 29, 0.9);
+  box-shadow: 0 18px 48px rgba(18, 28, 24, 0.26);
+  backdrop-filter: blur(18px);
+}
+
+.bottom-data-actions .ghost-button {
+  min-width: 132px;
 }
 
 .notice {
@@ -932,6 +945,14 @@ th {
     0 10px 24px rgba(230, 95, 79, 0.1);
 }
 
+.subject-picker-option.add-option {
+  border-style: dashed;
+  color: #245038;
+  background:
+    linear-gradient(135deg, rgba(127, 168, 94, 0.18), rgba(86, 122, 168, 0.1)),
+    rgba(22, 32, 29, 0.03);
+}
+
 .enter-hint {
   width: 30px;
   height: 30px;
@@ -1017,16 +1038,16 @@ th {
 
   .brand {
     min-width: 0;
-    flex: 1;
+    flex: 0 0 auto;
+  }
+  
+  .brand-text {
+    display: none;
   }
 
   .ghost-button {
     width: 48px;
     padding: 0;
-  }
-
-  .topbar-actions {
-    margin-left: 0;
   }
 
   .ghost-button svg {
@@ -1036,6 +1057,20 @@ th {
   .ghost-button {
     font-size: 0;
     gap: 0;
+  }
+
+  .bottom-data-actions {
+    width: min(100% - 24px, 1500px);
+    margin-bottom: 12px;
+  }
+
+  .bottom-data-actions .ghost-button {
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    padding: 0 14px;
+    font-size: 14px;
+    gap: 8px;
   }
 
   .panel {

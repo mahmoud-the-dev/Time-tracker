@@ -171,16 +171,18 @@ export function getLatestEditableSession(sessions: StudySession[]): StudySession
   return [...sessions].sort((a, b) => (b.createdAt || b.startedAt) - (a.createdAt || a.startedAt))[0] || null;
 }
 
-export async function addCourse(name: string): Promise<void> {
+export async function addCourse(name: string): Promise<Course> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Course name is required.');
-  await transact(['courses'], 'readwrite', async ({ courses }) => {
+  return transact(['courses'], 'readwrite', async ({ courses }) => {
     const existing = await getAll<'courses'>(courses);
     if (existing.some((course) => course.name.toLowerCase() === trimmed.toLowerCase())) {
       throw new Error('A course with this name already exists.');
     }
     const now = Date.now();
-    await put<'courses'>(courses, { id: id('course'), name: trimmed, archived: false, createdAt: now, updatedAt: now });
+    const course = { id: id('course'), name: trimmed, archived: false, createdAt: now, updatedAt: now };
+    await put<'courses'>(courses, course);
+    return course;
   });
 }
 

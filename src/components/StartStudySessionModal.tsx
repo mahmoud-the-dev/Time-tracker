@@ -1,16 +1,19 @@
 import type { KeyboardEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CornerDownLeft, Play, Search } from 'lucide-react';
+import { CornerDownLeft, Play, Plus, Search } from 'lucide-react';
 import type { Course } from '../types';
 import { Modal } from './Modal';
 
 type StartStudySessionModalProps = {
   courses: Course[];
   onClose: () => void;
+  onAddCourse: (name: string) => void;
   onStart: (courseId: string) => void;
 };
 
-export function StartStudySessionModal({ courses, onClose, onStart }: StartStudySessionModalProps) {
+type PickerOption = { type: 'course'; course: Course } | { type: 'add'; name: string };
+
+export function StartStudySessionModal({ courses, onAddCourse, onClose, onStart }: StartStudySessionModalProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,8 +25,17 @@ export function StartStudySessionModal({ courses, onClose, onStart }: StartStudy
     if (!normalizedQuery) return activeCourses;
     return activeCourses.filter((course) => course.name.toLocaleLowerCase().includes(normalizedQuery));
   }, [activeCourses, query]);
+  const addCourseName = query.trim();
+  const shouldShowAddCourse = Boolean(
+    addCourseName && !courses.some((course) => course.name.toLocaleLowerCase() === addCourseName.toLocaleLowerCase()),
+  );
+  const pickerOptions = useMemo<PickerOption[]>(() => {
+    const options: PickerOption[] = filteredCourses.map((course) => ({ type: 'course', course }));
+    if (shouldShowAddCourse) options.push({ type: 'add', name: addCourseName });
+    return options;
+  }, [addCourseName, filteredCourses, shouldShowAddCourse]);
 
-  const activeCourse = filteredCourses[activeIndex] || null;
+  const activeOption = pickerOptions[activeIndex] || null;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -34,32 +46,41 @@ export function StartStudySessionModal({ courses, onClose, onStart }: StartStudy
   }, [query]);
 
   useEffect(() => {
-    if (activeIndex >= filteredCourses.length) {
-      setActiveIndex(Math.max(0, filteredCourses.length - 1));
+    if (activeIndex >= pickerOptions.length) {
+      setActiveIndex(Math.max(0, pickerOptions.length - 1));
     }
-  }, [activeIndex, filteredCourses.length]);
+  }, [activeIndex, pickerOptions.length]);
 
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
+  function chooseOption(option: PickerOption | null): void {
+    if (!option) return;
+    if (option.type === 'add') {
+      onAddCourse(option.name);
+    } else {
+      onStart(option.course.id);
+    }
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (activeCourse) onStart(activeCourse.id);
+      chooseOption(activeOption);
       return;
     }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      if (!filteredCourses.length) return;
-      setActiveIndex((current) => Math.min(current + 1, filteredCourses.length - 1));
+      if (!pickerOptions.length) return;
+      setActiveIndex((current) => Math.min(current + 1, pickerOptions.length - 1));
       return;
     }
 
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      if (!filteredCourses.length) return;
+      if (!pickerOptions.length) return;
       setActiveIndex((current) => Math.max(current - 1, 0));
     }
   }
@@ -79,23 +100,24 @@ export function StartStudySessionModal({ courses, onClose, onStart }: StartStudy
       </div>
 
       <div ref={listRef} className="picker-list subject-picker-list" role="listbox" aria-label="Subjects">
-        {filteredCourses.length ? (
-          filteredCourses.map((course, index) => {
+        {pickerOptions.length ? (
+          pickerOptions.map((option, index) => {
             const isActive = index === activeIndex;
+            const isAddOption = option.type === 'add';
             return (
               <button
-                className={`picker-option subject-picker-option${isActive ? ' active' : ''}`}
-                key={course.id}
+                className={`picker-option subject-picker-option${isAddOption ? ' add-option' : ''}${isActive ? ' active' : ''}`}
+                key={isAddOption ? `add-${option.name}` : option.course.id}
                 type="button"
                 role="option"
                 aria-selected={isActive}
                 onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => onStart(course.id)}
+                onClick={() => chooseOption(option)}
               >
-                <span>{course.name}</span>
+                <span>{isAddOption ? `Add "${option.name}"` : option.course.name}</span>
                 {isActive && (
-                  <span className="enter-hint" aria-label="Press Enter to start">
-                    <CornerDownLeft size={16} />
+                  <span className="enter-hint" aria-label={isAddOption ? 'Press Enter to add course' : 'Press Enter to start'}>
+                    {isAddOption ? <Plus size={16} /> : <CornerDownLeft size={16} />}
                   </span>
                 )}
               </button>
@@ -108,9 +130,9 @@ export function StartStudySessionModal({ courses, onClose, onStart }: StartStudy
 
       <div className="modal-actions">
         <button onClick={onClose}>Cancel</button>
-        <button className="primary-action compact" disabled={!activeCourse} onClick={() => activeCourse && onStart(activeCourse.id)}>
-          <Play size={17} />
-          Start
+        <button className="primary-action compact" disabled={!activeOption} onClick={() => chooseOption(activeOption)}>
+          {activeOption?.type === 'add' ? <Plus size={17} /> : <Play size={17} />}
+          {activeOption?.type === 'add' ? 'Add Course' : 'Start'}
         </button>
       </div>
     </Modal>

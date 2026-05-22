@@ -1,6 +1,6 @@
 import type { DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3 } from 'lucide-react';
+import { Clock3, Download, Upload } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
 import { DashboardPanel, type DashboardRow } from './components/DashboardPanel';
@@ -180,6 +180,15 @@ export function App() {
     }, 'Study session started.');
   }
 
+  async function handleQuickAddCourse(name: string): Promise<void> {
+    await runAction(async () => {
+      const course = await addCourse(name);
+      setSelectedCourseId(course.id);
+      await createSession(course.id);
+      setStartOpen(false);
+    }, 'Course added and study session started.');
+  }
+
   async function handleAddCourse(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     await runAction(async () => {
@@ -313,11 +322,7 @@ export function App() {
         </div>
       )}
 
-      <Topbar
-        importInputRef={importInputRef}
-        onExport={() => void handleExport()}
-        onImportFile={(file) => void handleImportFile(file)}
-      />
+      <Topbar />
 
       {toast && <Notice kind="success" message={toast} onDismiss={() => setToast('')} />}
       {error && <Notice kind="error" message={error} onDismiss={() => setError('')} />}
@@ -381,10 +386,32 @@ export function App() {
         />
       </main>
 
+      <div className="bottom-data-actions" aria-label="Data actions">
+        <input
+          ref={importInputRef}
+          className="file-input"
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleImportFile(file);
+          }}
+        />
+        <button className="ghost-button" onClick={() => importInputRef.current?.click()}>
+          <Upload size={18} />
+          Import
+        </button>
+        <button className="ghost-button" onClick={() => void handleExport()}>
+          <Download size={18} />
+          Export
+        </button>
+      </div>
+
       {startOpen && (
         <StartStudySessionModal
           courses={courses}
           onClose={() => setStartOpen(false)}
+          onAddCourse={(name) => void handleQuickAddCourse(name)}
           onStart={(courseId) => void handleStart(courseId)}
         />
       )}
