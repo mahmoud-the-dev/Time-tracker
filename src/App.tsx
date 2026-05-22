@@ -1,6 +1,6 @@
 import type { DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, Download, Upload } from 'lucide-react';
+import { Clock3, Download, Github, Upload } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
 import { DeleteCourseModal } from './components/DeleteCourseModal';
@@ -426,6 +426,15 @@ export function App() {
       </main>
 
       <div className="bottom-data-actions" aria-label="Data actions">
+        <a
+          className="repo-link"
+          href="https://github.com/mahmoud-the-dev/Time-tracker"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Github size={18} />
+          GitHub repository
+        </a>
         <input
           ref={importInputRef}
           className="file-input"

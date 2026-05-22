@@ -240,6 +240,26 @@ a:focus-visible {
   backdrop-filter: blur(18px);
 }
 
+.repo-link {
+  min-height: 48px;
+  margin-right: auto;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 253, 247, 0.82);
+  border-radius: 8px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.repo-link:hover {
+  color: #16201d;
+  background: #fffdf7;
+  transform: translateY(-1px);
+}
+
 .bottom-data-actions .ghost-button {
   min-width: 132px;
 }
@@ -1085,6 +1105,13 @@ th {
   .bottom-data-actions {
     width: min(100% - 24px, 1500px);
     margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .repo-link {
+    width: 100%;
+    margin-right: 0;
+    justify-content: center;
   }
 
   .bottom-data-actions .ghost-button {
