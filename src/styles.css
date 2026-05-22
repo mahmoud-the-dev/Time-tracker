@@ -1186,6 +1186,10 @@ th {
     width: 100%;
   }
 
+  .controls-row {
+    align-items: stretch;
+  }
+
   .segmented,
   .segmented button,
   .month-stepper span {
@@ -1194,6 +1198,15 @@ th {
 
   .month-stepper span {
     min-width: 0;
+  }
+
+  .cleanup-empty-button {
+    width: 100%;
+    flex-basis: 100%;
+    min-width: 0;
+    padding: 0 14px;
+    font-size: 14px;
+    gap: 8px;
   }
 
   .course-grid {

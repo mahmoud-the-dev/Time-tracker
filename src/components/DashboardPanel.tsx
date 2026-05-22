@@ -60,7 +60,7 @@ export function DashboardPanel({
               title="Remove all courses with no sessions"
             >
               <Trash2 size={18} />
-              Remove Empty
+              <span>Remove Empty</span>
             </button>
           )}
         </div>

@@ -58,6 +58,7 @@ export function App() {
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editingCourseName, setEditingCourseName] = useState('');
   const [coursePendingDelete, setCoursePendingDelete] = useState<Course | null>(null);
+  const [emptyCoursesPendingDelete, setEmptyCoursesPendingDelete] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
@@ -119,10 +120,11 @@ export function App() {
     () => buildDashboardRows(activeCourses, sessions, breaksBySession, periodRange),
     [activeCourses, sessions, breaksBySession, periodRange],
   );
-  const emptyCourseCount = useMemo(
-    () => courses.filter((course) => !sessions.some((session) => session.courseId === course.id)).length,
+  const emptyCourses = useMemo(
+    () => courses.filter((course) => !sessions.some((session) => session.courseId === course.id)),
     [courses, sessions],
   );
+  const emptyCourseCount = emptyCourses.length;
   const totalPeriodMs = dashboardRows.reduce((total, row) => total + row.durationMs, 0);
   const selectedCourse = selectedCourseId ? courseMap.get(selectedCourseId) || null : null;
   const visibleSelectedCourse = selectedCourse?.archived ? null : selectedCourse;
@@ -152,7 +154,7 @@ export function App() {
   useEffect(() => {
     function handleSpaceShortcut(event: KeyboardEvent): void {
       if (event.code !== 'Space' || event.repeat || shouldIgnoreSpaceShortcut(event.target)) return;
-      if (startOpen || confirmEndOpen || coursePendingDelete) return;
+      if (startOpen || confirmEndOpen || coursePendingDelete || emptyCoursesPendingDelete) return;
 
       event.preventDefault();
       if (!activeSession) {
@@ -166,7 +168,7 @@ export function App() {
 
     window.addEventListener('keydown', handleSpaceShortcut);
     return () => window.removeEventListener('keydown', handleSpaceShortcut);
-  }, [activeSession, activeBreak, startOpen, confirmEndOpen, coursePendingDelete]);
+  }, [activeSession, activeBreak, startOpen, confirmEndOpen, coursePendingDelete, emptyCoursesPendingDelete]);
 
   function openStart(): void {
     setStartOpen(true);
@@ -240,16 +242,24 @@ export function App() {
   }
 
   async function handleRemoveEmptyCourses(): Promise<void> {
-    const emptyCourses = courses.filter((course) => !sessions.some((session) => session.courseId === course.id));
     if (!emptyCourses.length) return;
+    setEmptyCoursesPendingDelete(true);
+  }
 
+  async function handleDeleteEmptyCourses(): Promise<void> {
+    const coursesToDelete = courses.filter((course) => !sessions.some((session) => session.courseId === course.id));
+    if (!coursesToDelete.length) {
+      setEmptyCoursesPendingDelete(false);
+      return;
+    }
     await runAction(async () => {
-      for (const course of emptyCourses) {
+      for (const course of coursesToDelete) {
         await deleteCourse(course.id);
       }
-      const emptyCourseIds = new Set(emptyCourses.map((course) => course.id));
+      const emptyCourseIds = new Set(coursesToDelete.map((course) => course.id));
+      setEmptyCoursesPendingDelete(false);
       setSelectedCourseId((current) => (current && emptyCourseIds.has(current) ? null : current));
-    }, `${emptyCourses.length} empty ${emptyCourses.length === 1 ? 'course' : 'courses'} removed.`);
+    }, `${coursesToDelete.length} empty ${coursesToDelete.length === 1 ? 'course' : 'courses'} removed.`);
   }
 
   async function handleDeleteSession(session: StudySession): Promise<void> {
@@ -484,6 +494,13 @@ export function App() {
           sessionCount={sessions.filter((session) => session.courseId === coursePendingDelete.id).length}
           onCancel={() => setCoursePendingDelete(null)}
           onDelete={() => void handleDeleteCourse()}
+        />
+      )}
+      {emptyCoursesPendingDelete && emptyCourseCount > 0 && (
+        <DeleteCourseModal
+          emptyCourseCount={emptyCourseCount}
+          onCancel={() => setEmptyCoursesPendingDelete(false)}
+          onDelete={() => void handleDeleteEmptyCourses()}
         />
       )}
     </div>
