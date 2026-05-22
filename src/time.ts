@@ -1,4 +1,10 @@
-export function getWeekRange(now = Date.now()) {
+import type { StudyBreak, StudySession, TimeRange } from './types';
+
+type FormatDurationOptions = {
+  live?: boolean;
+};
+
+export function getWeekRange(now = Date.now()): TimeRange {
   const date = new Date(now);
   const day = date.getDay();
   const diffToMonday = (day + 6) % 7;
@@ -7,20 +13,20 @@ export function getWeekRange(now = Date.now()) {
   return { start: start.getTime(), end: end.getTime() };
 }
 
-export function getMonthRange(monthTimestamp = Date.now()) {
+export function getMonthRange(monthTimestamp = Date.now()): TimeRange {
   const date = new Date(monthTimestamp);
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
   return { start: start.getTime(), end: end.getTime() };
 }
 
-export function clampPeriodOverlap(start, end, periodStart, periodEnd) {
+export function clampPeriodOverlap(start: number, end: number, periodStart: number, periodEnd: number): number {
   const overlapStart = Math.max(start, periodStart);
   const overlapEnd = Math.min(end, periodEnd);
   return Math.max(0, overlapEnd - overlapStart);
 }
 
-export function sumBreakDuration(breaks, fallbackEnd = Date.now(), range = null) {
+export function sumBreakDuration(breaks: StudyBreak[], fallbackEnd = Date.now(), range: TimeRange | null = null): number {
   return breaks.reduce((total, item) => {
     const end = item.endedAt || fallbackEnd;
     if (end <= item.startedAt) return total;
@@ -29,7 +35,12 @@ export function sumBreakDuration(breaks, fallbackEnd = Date.now(), range = null)
   }, 0);
 }
 
-export function sumStudyDuration(session, breaks, fallbackEnd = Date.now(), range = null) {
+export function sumStudyDuration(
+  session: StudySession,
+  breaks: StudyBreak[],
+  fallbackEnd = Date.now(),
+  range: TimeRange | null = null,
+): number {
   const sessionEnd = session.endedAt || fallbackEnd;
   const elapsed = range
     ? clampPeriodOverlap(session.startedAt, sessionEnd, range.start, range.end)
@@ -38,7 +49,7 @@ export function sumStudyDuration(session, breaks, fallbackEnd = Date.now(), rang
   return Math.max(0, elapsed - breakMs);
 }
 
-export function formatDuration(ms, options = {}) {
+export function formatDuration(ms: number, options: FormatDurationOptions = {}): string {
   const safeMs = Math.max(0, ms || 0);
   const totalSeconds = Math.floor(safeMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -50,7 +61,7 @@ export function formatDuration(ms, options = {}) {
   return `${hours}h ${String(minutes).padStart(2, '0')}m`;
 }
 
-export function formatDateTime(timestamp) {
+export function formatDateTime(timestamp: number | null): string {
   if (!timestamp) return 'Open';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -60,18 +71,28 @@ export function formatDateTime(timestamp) {
   }).format(new Date(timestamp));
 }
 
-export function formatMonthLabel(timestamp) {
+export function formatFullDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = new Intl.DateTimeFormat(undefined, { month: 'short' }).format(date);
+  const year = date.getFullYear();
+  const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
+  return `${weekday}, ${day}-${month}-${year} ${time}`;
+}
+
+export function formatMonthLabel(timestamp: number): string {
   return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(timestamp));
 }
 
-export function formatInputDateTime(timestamp) {
+export function formatInputDateTime(timestamp: number | null): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
 }
 
-export function parseInputDateTime(value) {
+export function parseInputDateTime(value: string): number {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) throw new Error('Enter a valid date and time.');
   return timestamp;

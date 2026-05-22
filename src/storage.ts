@@ -1,3 +1,12 @@
+import type {
+  AppData,
+  Course,
+  EditableBreakField,
+  EditableSessionField,
+  StudyBreak,
+  StudySession,
+} from './types';
+
 const DB_NAME = 'study-time-tracker';
 const DB_VERSION = 1;
 const INITIAL_COURSES = [
@@ -9,9 +18,22 @@ const INITIAL_COURSES = [
   'Software Engineering II',
 ];
 
-let dbPromise;
+type StoreName = 'meta' | 'courses' | 'sessions' | 'breaks';
 
-function openDb() {
+type StoreValueMap = {
+  meta: { key: string; value: unknown };
+  courses: Course;
+  sessions: StudySession;
+  breaks: StudyBreak;
+};
+
+type Stores<TNames extends readonly StoreName[]> = {
+  [K in TNames[number]]: IDBObjectStore;
+};
+
+let dbPromise: Promise<IDBDatabase> | undefined;
+
+function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -28,12 +50,16 @@ function openDb() {
   return dbPromise;
 }
 
-async function transact(storeNames, mode, callback) {
+async function transact<TNames extends readonly StoreName[], TResult>(
+  storeNames: TNames,
+  mode: IDBTransactionMode,
+  callback: (stores: Stores<TNames>) => Promise<TResult> | TResult,
+): Promise<TResult> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeNames, mode);
-    const stores = Object.fromEntries(storeNames.map((name) => [name, tx.objectStore(name)]));
-    let result;
+    const stores = Object.fromEntries(storeNames.map((name) => [name, tx.objectStore(name)])) as Stores<TNames>;
+    let result: TResult;
     tx.oncomplete = () => resolve(result);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error('Transaction aborted.'));
@@ -46,115 +72,119 @@ async function transact(storeNames, mode, callback) {
   });
 }
 
-function requestToPromise(request) {
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-function getAll(store) {
-  return requestToPromise(store.getAll());
+function getAll<TStore extends StoreName>(store: IDBObjectStore): Promise<StoreValueMap[TStore][]> {
+  return requestToPromise<StoreValueMap[TStore][]>(store.getAll());
 }
 
-function get(store, key) {
-  return requestToPromise(store.get(key));
+function get<TStore extends StoreName>(
+  store: IDBObjectStore,
+  key: IDBValidKey,
+): Promise<StoreValueMap[TStore] | undefined> {
+  return requestToPromise<StoreValueMap[TStore] | undefined>(store.get(key));
 }
 
-function put(store, value) {
+function put<TStore extends StoreName>(store: IDBObjectStore, value: StoreValueMap[TStore]): Promise<IDBValidKey> {
   return requestToPromise(store.put(value));
 }
 
-function del(store, key) {
+function del(store: IDBObjectStore, key: IDBValidKey): Promise<undefined> {
   return requestToPromise(store.delete(key));
 }
 
-function id(prefix) {
+function id(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
-export async function seedInitialData() {
+export async function seedInitialData(): Promise<void> {
   await transact(['meta', 'courses'], 'readwrite', async ({ meta, courses }) => {
-    const seeded = await get(meta, 'seeded');
+    const seeded = await get<'meta'>(meta, 'seeded');
     if (seeded) return;
     const now = Date.now();
     for (const name of INITIAL_COURSES) {
-      await put(courses, { id: id('course'), name, archived: false, createdAt: now, updatedAt: now });
+      await put<'courses'>(courses, { id: id('course'), name, archived: false, createdAt: now, updatedAt: now });
     }
-    await put(meta, { key: 'seeded', value: true });
+    await put<'meta'>(meta, { key: 'seeded', value: true });
   });
 }
 
-export async function getAppData() {
+export async function getAppData(): Promise<AppData> {
   return transact(['courses', 'sessions', 'breaks'], 'readonly', async ({ courses, sessions, breaks }) => ({
-    courses: (await getAll(courses)).sort((a, b) => a.name.localeCompare(b.name)),
-    sessions: await getAll(sessions),
-    breaks: await getAll(breaks),
+    courses: (await getAll<'courses'>(courses)).sort((a, b) => a.name.localeCompare(b.name)),
+    sessions: await getAll<'sessions'>(sessions),
+    breaks: await getAll<'breaks'>(breaks),
   }));
 }
 
-export function getLatestEditableSession(sessions) {
+export function getLatestEditableSession(sessions: StudySession[]): StudySession | null {
   return [...sessions].sort((a, b) => (b.createdAt || b.startedAt) - (a.createdAt || a.startedAt))[0] || null;
 }
 
-export async function addCourse(name) {
+export async function addCourse(name: string): Promise<void> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Course name is required.');
   await transact(['courses'], 'readwrite', async ({ courses }) => {
-    const existing = await getAll(courses);
+    const existing = await getAll<'courses'>(courses);
     if (existing.some((course) => course.name.toLowerCase() === trimmed.toLowerCase())) {
       throw new Error('A course with this name already exists.');
     }
     const now = Date.now();
-    await put(courses, { id: id('course'), name: trimmed, archived: false, createdAt: now, updatedAt: now });
+    await put<'courses'>(courses, { id: id('course'), name: trimmed, archived: false, createdAt: now, updatedAt: now });
   });
 }
 
-export async function renameCourse(courseId, name) {
+export async function renameCourse(courseId: string | null, name: string): Promise<void> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Course name is required.');
   await transact(['courses'], 'readwrite', async ({ courses }) => {
-    const course = await get(courses, courseId);
+    if (!courseId) throw new Error('Course not found.');
+    const course = await get<'courses'>(courses, courseId);
     if (!course) throw new Error('Course not found.');
-    await put(courses, { ...course, name: trimmed, updatedAt: Date.now() });
+    await put<'courses'>(courses, { ...course, name: trimmed, updatedAt: Date.now() });
   });
 }
 
-export async function archiveCourse(courseId, archived) {
+export async function archiveCourse(courseId: string, archived: boolean): Promise<void> {
   await transact(['courses'], 'readwrite', async ({ courses }) => {
-    const course = await get(courses, courseId);
+    const course = await get<'courses'>(courses, courseId);
     if (!course) throw new Error('Course not found.');
-    await put(courses, { ...course, archived, updatedAt: Date.now() });
+    await put<'courses'>(courses, { ...course, archived, updatedAt: Date.now() });
   });
 }
 
-export async function removeCourse(courseId) {
+export async function removeCourse(courseId: string): Promise<void> {
   await transact(['courses', 'sessions'], 'readwrite', async ({ courses, sessions }) => {
-    const course = await get(courses, courseId);
+    const course = await get<'courses'>(courses, courseId);
     if (!course) throw new Error('Course not found.');
-    const allSessions = await getAll(sessions);
+    const allSessions = await getAll<'sessions'>(sessions);
     const hasSessions = allSessions.some((session) => session.courseId === courseId);
     if (hasSessions) {
-      await put(courses, { ...course, archived: true, updatedAt: Date.now() });
+      await put<'courses'>(courses, { ...course, archived: true, updatedAt: Date.now() });
     } else {
       await del(courses, courseId);
     }
   });
 }
 
-export async function deleteCourse(courseId) {
+export async function deleteCourse(courseId: string): Promise<void> {
   await removeCourse(courseId);
 }
 
-export async function createSession(courseId) {
+export async function createSession(courseId: string): Promise<void> {
   if (!courseId) throw new Error('Choose a course to start.');
   await transact(['courses', 'sessions'], 'readwrite', async ({ courses, sessions }) => {
-    const course = await get(courses, courseId);
+    const course = await get<'courses'>(courses, courseId);
     if (!course || course.archived) throw new Error('Choose an active course.');
-    const allSessions = await getAll(sessions);
+    const allSessions = await getAll<'sessions'>(sessions);
     if (allSessions.some((session) => !session.endedAt)) throw new Error('End the current session before starting a new one.');
     const now = Date.now();
-    await put(sessions, {
+    await put<'sessions'>(sessions, {
       id: id('session'),
       courseId,
       startedAt: now,
@@ -166,81 +196,96 @@ export async function createSession(courseId) {
   });
 }
 
-export async function pauseActiveSession() {
+export async function pauseActiveSession(): Promise<void> {
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
     const active = await getActiveSession(sessions);
     if (!active) throw new Error('No active session to pause.');
-    const allBreaks = await getAll(breaks);
+    const allBreaks = await getAll<'breaks'>(breaks);
     if (allBreaks.some((item) => item.sessionId === active.id && !item.endedAt)) throw new Error('Session is already paused.');
     const now = Date.now();
-    await put(sessions, { ...active, status: 'paused', updatedAt: now });
-    await put(breaks, { id: id('break'), sessionId: active.id, startedAt: now, endedAt: null, createdAt: now, updatedAt: now });
+    await put<'sessions'>(sessions, { ...active, status: 'paused', updatedAt: now });
+    await put<'breaks'>(breaks, { id: id('break'), sessionId: active.id, startedAt: now, endedAt: null, createdAt: now, updatedAt: now });
   });
 }
 
-export async function resumeActiveSession() {
+export async function resumeActiveSession(): Promise<void> {
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
     const active = await getActiveSession(sessions);
     if (!active) throw new Error('No active session to resume.');
-    const allBreaks = await getAll(breaks);
+    const allBreaks = await getAll<'breaks'>(breaks);
     const openBreak = allBreaks.find((item) => item.sessionId === active.id && !item.endedAt);
     if (!openBreak) throw new Error('Session is not paused.');
     const now = Date.now();
-    await put(breaks, { ...openBreak, endedAt: now, updatedAt: now });
-    await put(sessions, { ...active, status: 'running', updatedAt: now });
+    await put<'breaks'>(breaks, { ...openBreak, endedAt: now, updatedAt: now });
+    await put<'sessions'>(sessions, { ...active, status: 'running', updatedAt: now });
   });
 }
 
-export async function endActiveSession() {
+export async function endActiveSession(): Promise<void> {
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
     const active = await getActiveSession(sessions);
     if (!active) throw new Error('No active session to end.');
     const now = Date.now();
-    const allBreaks = await getAll(breaks);
+    const allBreaks = await getAll<'breaks'>(breaks);
     const openBreak = allBreaks.find((item) => item.sessionId === active.id && !item.endedAt);
-    if (openBreak) await put(breaks, { ...openBreak, endedAt: now, updatedAt: now });
-    await put(sessions, { ...active, endedAt: now, status: 'ended', updatedAt: now });
+    if (openBreak) await put<'breaks'>(breaks, { ...openBreak, endedAt: now, updatedAt: now });
+    await put<'sessions'>(sessions, { ...active, endedAt: now, status: 'ended', updatedAt: now });
   });
 }
 
-export async function updateSessionTime(sessionId, field, value) {
+export async function updateSessionTime(sessionId: string, field: EditableSessionField, value: number): Promise<void> {
   if (!['startedAt', 'endedAt'].includes(field)) throw new Error('Unsupported session field.');
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
-    const allSessions = await getAll(sessions);
+    const allSessions = await getAll<'sessions'>(sessions);
     const latest = getLatestEditableSession(allSessions);
     const session = allSessions.find((item) => item.id === sessionId);
     if (!session || latest?.id !== sessionId) throw new Error('Only the latest session can be corrected.');
+    const sessionBreaks = (await getAll<'breaks'>(breaks)).filter((item) => item.sessionId === sessionId);
+    if (session.endedAt) {
+      if (field !== 'endedAt') throw new Error('Only the session end can be corrected.');
+    } else if (sessionBreaks.length) {
+      throw new Error('Only the latest break point can be corrected.');
+    } else if (field !== 'startedAt') {
+      throw new Error('Only the session start can be corrected.');
+    }
     const next = { ...session, [field]: value, updatedAt: Date.now() };
-    const sessionBreaks = (await getAll(breaks)).filter((item) => item.sessionId === sessionId);
     validateSession(next, sessionBreaks);
-    await put(sessions, next);
+    await put<'sessions'>(sessions, next);
   });
 }
 
-export async function updateBreakTime(breakId, field, value) {
+export async function updateBreakTime(breakId: string, field: EditableBreakField, value: number): Promise<void> {
   if (!['startedAt', 'endedAt'].includes(field)) throw new Error('Unsupported break field.');
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
-    const allBreaks = await getAll(breaks);
+    const allBreaks = await getAll<'breaks'>(breaks);
     const target = allBreaks.find((item) => item.id === breakId);
     if (!target) throw new Error('Break not found.');
-    const allSessions = await getAll(sessions);
+    const allSessions = await getAll<'sessions'>(sessions);
     const latestSession = getLatestEditableSession(allSessions);
     if (latestSession?.id !== target.sessionId) throw new Error('Only the latest session break can be corrected.');
-    const sessionBreaks = allBreaks.filter((item) => item.sessionId === target.sessionId).sort((a, b) => a.startedAt - b.startedAt);
-    const latestBreak = sessionBreaks.at(-1);
-    if (latestBreak.id !== breakId) throw new Error('Only the latest break can be corrected.');
+    const sessionBreaks = allBreaks.filter((item) => item.sessionId === target.sessionId);
+    const latestBreak = getLatestBreak(sessionBreaks);
+    if (latestBreak?.id !== breakId) throw new Error('Only the latest break can be corrected.');
+    if (latestSession.endedAt) throw new Error('Only the session end can be corrected.');
+    if (latestBreak.endedAt) {
+      if (field !== 'endedAt') throw new Error('Only the latest break end can be corrected.');
+    } else if (field !== 'startedAt') {
+      throw new Error('Only the latest break start can be corrected.');
+    }
     const nextBreaks = sessionBreaks.map((item) => (item.id === breakId ? { ...item, [field]: value, updatedAt: Date.now() } : item));
     validateSession(latestSession, nextBreaks);
-    await put(breaks, nextBreaks.find((item) => item.id === breakId));
+    const nextBreak = nextBreaks.find((item) => item.id === breakId);
+    if (!nextBreak) throw new Error('Break not found.');
+    await put<'breaks'>(breaks, nextBreak);
   });
 }
 
-export async function deleteSession(sessionId) {
+export async function deleteSession(sessionId: string): Promise<void> {
   await transact(['sessions', 'breaks'], 'readwrite', async ({ sessions, breaks }) => {
-    const session = await get(sessions, sessionId);
+    const session = await get<'sessions'>(sessions, sessionId);
     if (!session) throw new Error('Session not found.');
     if (!session.endedAt) throw new Error('End the session before deleting it.');
-    const allBreaks = await getAll(breaks);
+    const allBreaks = await getAll<'breaks'>(breaks);
     for (const item of allBreaks.filter((breakItem) => breakItem.sessionId === sessionId)) {
       await del(breaks, item.id);
     }
@@ -248,17 +293,21 @@ export async function deleteSession(sessionId) {
   });
 }
 
-export async function exportData() {
+export async function exportData(): Promise<AppData & { schemaVersion: number; exportedAt: string }> {
   const data = await getAppData();
   return { schemaVersion: DB_VERSION, exportedAt: new Date().toISOString(), ...data };
 }
 
-async function getActiveSession(sessionStore) {
-  const allSessions = await getAll(sessionStore);
+async function getActiveSession(sessionStore: IDBObjectStore): Promise<StudySession | null> {
+  const allSessions = await getAll<'sessions'>(sessionStore);
   return allSessions.find((session) => !session.endedAt) || null;
 }
 
-function validateSession(session, breaks) {
+function getLatestBreak(breaks: StudyBreak[]): StudyBreak | null {
+  return [...breaks].sort((a, b) => (b.createdAt || b.startedAt) - (a.createdAt || a.startedAt))[0] || null;
+}
+
+function validateSession(session: StudySession, breaks: StudyBreak[]): void {
   if (!Number.isFinite(session.startedAt)) throw new Error('Session start time is invalid.');
   if (session.endedAt && session.endedAt <= session.startedAt) throw new Error('Session end must be after session start.');
   const sessionEnd = session.endedAt || Date.now();
@@ -279,6 +328,6 @@ function validateSession(session, breaks) {
   }
   if (session.endedAt && sorted.length) {
     const lastBreak = sorted.at(-1);
-    if (session.endedAt < lastBreak.startedAt) throw new Error('Session end cannot be before the last break point.');
+    if (lastBreak && session.endedAt < lastBreak.startedAt) throw new Error('Session end cannot be before the last break point.');
   }
 }

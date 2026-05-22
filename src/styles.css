@@ -767,42 +767,39 @@ th {
 .correction-box {
   max-width: 900px;
   margin-top: 22px;
-  padding: 14px;
+  position: relative;
+}
+
+.correction-trigger {
+  min-height: 48px;
+  width: 100%;
   border: 1px solid rgba(22, 32, 29, 0.12);
   border-radius: 8px;
-  background: rgba(255, 253, 247, 0.7);
-}
-
-.correction-box summary {
-  display: flex;
+  padding: 0 14px;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--dark);
+  background: rgba(255, 253, 247, 0.78);
   font-weight: 900;
-  cursor: pointer;
+  text-align: left;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
-.correction-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+.correction-trigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(230, 95, 79, 0.42);
+  background: #fffdf7;
 }
 
-.correction-grid label {
-  display: grid;
-  gap: 7px;
-  color: #4e5a52;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.correction-grid button {
-  min-height: 38px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--dark);
-  color: white;
-  font-weight: 900;
+.correction-native-input {
+  position: absolute;
+  left: 0;
+  /* top: calc(100% + 6px); */
+  width: 100%;
+  height: 48px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .modal-backdrop {

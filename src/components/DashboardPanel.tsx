@@ -1,0 +1,73 @@
+import { Clock3, Flame } from 'lucide-react';
+import { MonthStepper } from './MonthStepper';
+import { formatDuration, formatMonthLabel } from '../time';
+import type { Course } from '../types';
+
+export type DashboardRow = {
+  course: Course;
+  durationMs: number;
+};
+
+type DashboardPanelProps = {
+  period: 'week' | 'month';
+  selectedMonth: number;
+  selectedCourseId: string | null;
+  rows: DashboardRow[];
+  totalMs: number;
+  onPeriodChange: (period: 'week' | 'month') => void;
+  onMonthChange: (selectedMonth: number) => void;
+  onCourseSelect: (courseId: string) => void;
+};
+
+export function DashboardPanel({
+  period,
+  selectedMonth,
+  selectedCourseId,
+  rows,
+  totalMs,
+  onPeriodChange,
+  onMonthChange,
+  onCourseSelect,
+}: DashboardPanelProps) {
+  return (
+    <section className="panel" id="dashboard">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">
+            <Flame size={14} /> Mini Dashboard
+          </p>
+          <h2>{period === 'week' ? 'This Week' : formatMonthLabel(selectedMonth)}</h2>
+        </div>
+        <div className="controls-row">
+          <div className="segmented">
+            <button className={period === 'week' ? 'active' : ''} onClick={() => onPeriodChange('week')}>
+              Week
+            </button>
+            <button className={period === 'month' ? 'active' : ''} onClick={() => onPeriodChange('month')}>
+              Month
+            </button>
+          </div>
+          {period === 'month' && <MonthStepper selectedMonth={selectedMonth} onChange={onMonthChange} />}
+        </div>
+      </div>
+      <div className="total-strip">
+        <Clock3 size={20} />
+        <span>Total focused study</span>
+        <strong>{formatDuration(totalMs)}</strong>
+      </div>
+      <div className="course-grid">
+        {rows.map((row) => (
+          <button
+            key={row.course.id}
+            className={`course-tile ${selectedCourseId === row.course.id ? 'selected' : ''}`}
+            onClick={() => onCourseSelect(row.course.id)}
+          >
+            <span>{row.course.name}</span>
+            <strong>{formatDuration(row.durationMs)}</strong>
+            {row.course.archived && <small>Archived</small>}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
