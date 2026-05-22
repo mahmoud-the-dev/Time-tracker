@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, Play, Square } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
@@ -17,6 +17,7 @@ import {
   exportData,
   getAppData,
   getLatestEditableSession,
+  importData,
   pauseActiveSession,
   removeCourse,
   renameCourse,
@@ -59,6 +60,7 @@ export function App() {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void seedInitialData().then(loadData);
@@ -203,6 +205,24 @@ export function App() {
     URL.revokeObjectURL(url);
   }
 
+  async function handleImportFile(file: File): Promise<void> {
+    await runAction(async () => {
+      const text = await file.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Import file must be valid JSON.');
+      }
+      await importData(data);
+      setExpandedSessions(new Set());
+      setSelectedCourseId(null);
+      setStartOpen(false);
+      setConfirmEndOpen(false);
+    }, 'Data imported.');
+    if (importInputRef.current) importInputRef.current.value = '';
+  }
+
   function handleUpdateSession(field: EditableSessionField, value: number): void {
     if (!latestEditable) return;
     void runAction(() => updateSessionTime(latestEditable.id, field, value), 'Session time updated.');
@@ -223,7 +243,11 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <Topbar onExport={() => void handleExport()} />
+      <Topbar
+        importInputRef={importInputRef}
+        onExport={() => void handleExport()}
+        onImportFile={(file) => void handleImportFile(file)}
+      />
 
       {toast && <Notice kind="success" message={toast} onDismiss={() => setToast('')} />}
       {error && <Notice kind="error" message={error} onDismiss={() => setError('')} />}

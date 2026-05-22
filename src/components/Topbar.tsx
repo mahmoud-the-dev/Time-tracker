@@ -1,10 +1,13 @@
-import { BookOpen, Download } from 'lucide-react';
+import type { RefObject } from 'react';
+import { BookOpen, Download, Upload } from 'lucide-react';
 
 type TopbarProps = {
+  importInputRef: RefObject<HTMLInputElement | null>;
   onExport: () => void;
+  onImportFile: (file: File) => void;
 };
 
-export function Topbar({ onExport }: TopbarProps) {
+export function Topbar({ importInputRef, onExport, onImportFile }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -21,10 +24,26 @@ export function Topbar({ onExport }: TopbarProps) {
         <a href="#dashboard">Dashboard</a>
         <a href="#courses">Courses</a>
       </nav>
-      <button className="ghost-button" onClick={onExport}>
-        <Download size={18} />
-        Export
-      </button>
+      <div className="topbar-actions">
+        <input
+          ref={importInputRef}
+          className="file-input"
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onImportFile(file);
+          }}
+        />
+        <button className="ghost-button" onClick={() => importInputRef.current?.click()}>
+          <Upload size={18} />
+          Import
+        </button>
+        <button className="ghost-button" onClick={onExport}>
+          <Download size={18} />
+          Export
+        </button>
+      </div>
     </header>
   );
 }

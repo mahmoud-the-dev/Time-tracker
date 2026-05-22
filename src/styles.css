@@ -165,6 +165,17 @@ a:focus-visible {
   background: #fffdf7;
 }
 
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-input {
+  display: none;
+}
+
 .content {
   width: min(1500px, calc(100% - 44px));
   margin: 0 auto;
@@ -455,7 +466,6 @@ a:focus-visible {
 .ghost-button {
   color: #16201d;
   background: #fffdf7;
-  margin-left: auto;
 }
 
 .primary-action:hover,
@@ -907,6 +917,10 @@ th {
   .ghost-button {
     width: 48px;
     padding: 0;
+  }
+
+  .topbar-actions {
+    margin-left: 0;
   }
 
   .ghost-button svg {

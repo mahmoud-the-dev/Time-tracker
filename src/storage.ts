@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type {
   AppData,
   Course,
@@ -30,6 +31,46 @@ type StoreValueMap = {
 type Stores<TNames extends readonly StoreName[]> = {
   [K in TNames[number]]: IDBObjectStore;
 };
+
+const finiteTimestamp = z.number().finite().nonnegative();
+const nullableTimestamp = finiteTimestamp.nullable();
+
+const courseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  archived: z.boolean(),
+  createdAt: finiteTimestamp,
+  updatedAt: finiteTimestamp,
+});
+
+const sessionSchema = z.object({
+  id: z.string().min(1),
+  courseId: z.string().min(1),
+  startedAt: finiteTimestamp,
+  endedAt: nullableTimestamp,
+  status: z.enum(['running', 'paused', 'ended']),
+  createdAt: finiteTimestamp,
+  updatedAt: finiteTimestamp,
+});
+
+const breakSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  startedAt: finiteTimestamp,
+  endedAt: nullableTimestamp,
+  createdAt: finiteTimestamp,
+  updatedAt: finiteTimestamp,
+});
+
+const importedDataSchema = z.object({
+  schemaVersion: z.literal(DB_VERSION),
+  exportedAt: z.string().datetime(),
+  courses: z.array(courseSchema),
+  sessions: z.array(sessionSchema),
+  breaks: z.array(breakSchema),
+});
+
+type ExportedAppData = AppData & { schemaVersion: number; exportedAt: string };
 
 let dbPromise: Promise<IDBDatabase> | undefined;
 
@@ -96,6 +137,10 @@ function put<TStore extends StoreName>(store: IDBObjectStore, value: StoreValueM
 
 function del(store: IDBObjectStore, key: IDBValidKey): Promise<undefined> {
   return requestToPromise(store.delete(key));
+}
+
+function clear(store: IDBObjectStore): Promise<undefined> {
+  return requestToPromise(store.clear());
 }
 
 function id(prefix: string): string {
@@ -293,9 +338,27 @@ export async function deleteSession(sessionId: string): Promise<void> {
   });
 }
 
-export async function exportData(): Promise<AppData & { schemaVersion: number; exportedAt: string }> {
+export async function exportData(): Promise<ExportedAppData> {
   const data = await getAppData();
   return { schemaVersion: DB_VERSION, exportedAt: new Date().toISOString(), ...data };
+}
+
+export async function importData(data: unknown): Promise<void> {
+  const parsed = importedDataSchema.safeParse(data);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue ? `Import file is invalid: ${firstIssue.message}` : 'Import file is invalid.');
+  }
+  validateImportedData(parsed.data);
+  await transact(['meta', 'courses', 'sessions', 'breaks'], 'readwrite', async ({ meta, courses, sessions, breaks }) => {
+    await clear(courses);
+    await clear(sessions);
+    await clear(breaks);
+    for (const course of parsed.data.courses) await put<'courses'>(courses, course);
+    for (const session of parsed.data.sessions) await put<'sessions'>(sessions, session);
+    for (const item of parsed.data.breaks) await put<'breaks'>(breaks, item);
+    await put<'meta'>(meta, { key: 'seeded', value: true });
+  });
 }
 
 async function getActiveSession(sessionStore: IDBObjectStore): Promise<StudySession | null> {
@@ -330,4 +393,49 @@ function validateSession(session: StudySession, breaks: StudyBreak[]): void {
     const lastBreak = sorted.at(-1);
     if (lastBreak && session.endedAt < lastBreak.startedAt) throw new Error('Session end cannot be before the last break point.');
   }
+}
+
+function validateImportedData(data: AppData): void {
+  assertUnique(data.courses.map((course) => course.id), 'course IDs');
+  assertUnique(data.sessions.map((session) => session.id), 'session IDs');
+  assertUnique(data.breaks.map((item) => item.id), 'break IDs');
+
+  const courseIds = new Set(data.courses.map((course) => course.id));
+  const sessionIds = new Set(data.sessions.map((session) => session.id));
+  const breaksBySession = new Map<string, StudyBreak[]>();
+
+  for (const session of data.sessions) {
+    if (!courseIds.has(session.courseId)) throw new Error('Import file has a session for a missing course.');
+    if (session.status === 'ended' && !session.endedAt) throw new Error('Import file has an ended session without an end time.');
+    if (session.status !== 'ended' && session.endedAt) throw new Error('Import file has an active session with an end time.');
+  }
+
+  if (data.sessions.filter((session) => !session.endedAt).length > 1) {
+    throw new Error('Import file has more than one active session.');
+  }
+
+  for (const item of data.breaks) {
+    if (!sessionIds.has(item.sessionId)) throw new Error('Import file has a break for a missing session.');
+    const sessionBreaks = breaksBySession.get(item.sessionId) || [];
+    sessionBreaks.push(item);
+    breaksBySession.set(item.sessionId, sessionBreaks);
+  }
+
+  for (const session of data.sessions) {
+    const sessionBreaks = breaksBySession.get(session.id) || [];
+    validateSession(session, sessionBreaks);
+    if (session.status === 'paused' && !sessionBreaks.some((item) => !item.endedAt)) {
+      throw new Error('Import file has a paused session without an open break.');
+    }
+    if (session.status === 'running' && sessionBreaks.some((item) => !item.endedAt)) {
+      throw new Error('Import file has a running session with an open break.');
+    }
+    if (session.status === 'ended' && sessionBreaks.some((item) => !item.endedAt)) {
+      throw new Error('Import file has an ended session with an open break.');
+    }
+  }
+}
+
+function assertUnique(values: string[], label: string): void {
+  if (new Set(values).size !== values.length) throw new Error(`Import file has duplicate ${label}.`);
 }
