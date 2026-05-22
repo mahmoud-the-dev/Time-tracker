@@ -1088,6 +1088,18 @@ th {
     display: none;
   }
 
+  .nav-links {
+    min-height: 42px;
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .nav-links a {
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
   .ghost-button {
     width: 48px;
     padding: 0;

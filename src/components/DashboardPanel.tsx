@@ -52,16 +52,17 @@ export function DashboardPanel({
             </button>
           </div>
           {period === 'month' && <MonthStepper selectedMonth={selectedMonth} onChange={onMonthChange} />}
-          <button
-            className="ghost-button cleanup-empty-button"
-            type="button"
-            disabled={!emptyCourseCount}
-            onClick={onRemoveEmptyCourses}
-            title="Remove all courses with no sessions"
-          >
-            <Trash2 size={18} />
-            Remove Empty
-          </button>
+          {emptyCourseCount > 0 && (
+            <button
+              className="ghost-button cleanup-empty-button"
+              type="button"
+              onClick={onRemoveEmptyCourses}
+              title="Remove all courses with no sessions"
+            >
+              <Trash2 size={18} />
+              Remove Empty
+            </button>
+          )}
         </div>
       </div>
       <div className="total-strip">
