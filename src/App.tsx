@@ -1,10 +1,10 @@
 import type { DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, Square } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
 import { DashboardPanel, type DashboardRow } from './components/DashboardPanel';
-import { Modal } from './components/Modal';
+import { EndStudySessionModal } from './components/EndStudySessionModal';
 import { Notice } from './components/Notice';
 import { StartStudySessionModal } from './components/StartStudySessionModal';
 import { TimerPanel } from './components/TimerPanel';
@@ -29,7 +29,6 @@ import {
 } from './storage';
 import {
   clampPeriodOverlap,
-  formatDuration,
   getMonthRange,
   getWeekRange,
   sumBreakDuration,
@@ -391,26 +390,17 @@ export function App() {
       )}
 
       {confirmEndOpen && activeSession && (
-        <Modal title="End Session?" onClose={() => setConfirmEndOpen(false)}>
-          <p className="confirm-copy">
-            End your {activeCourse?.name} session with {formatDuration(activeStudyMs)} of net study time?
-          </p>
-          <div className="modal-actions">
-            <button onClick={() => setConfirmEndOpen(false)}>Cancel</button>
-            <button
-              className="secondary-action danger compact"
-              onClick={() =>
-                void runAction(async () => {
-                  await endActiveSession();
-                  setConfirmEndOpen(false);
-                }, 'Session ended.')
-              }
-            >
-              <Square size={17} />
-              End
-            </button>
-          </div>
-        </Modal>
+        <EndStudySessionModal
+          activeCourse={activeCourse}
+          activeStudyMs={activeStudyMs}
+          onClose={() => setConfirmEndOpen(false)}
+          onEnd={() =>
+            void runAction(async () => {
+              await endActiveSession();
+              setConfirmEndOpen(false);
+            }, 'Session ended.')
+          }
+        />
       )}
     </div>
   );
