@@ -119,6 +119,10 @@ export function App() {
     () => buildDashboardRows(activeCourses, sessions, breaksBySession, periodRange),
     [activeCourses, sessions, breaksBySession, periodRange],
   );
+  const emptyCourseCount = useMemo(
+    () => courses.filter((course) => !sessions.some((session) => session.courseId === course.id)).length,
+    [courses, sessions],
+  );
   const totalPeriodMs = dashboardRows.reduce((total, row) => total + row.durationMs, 0);
   const selectedCourse = selectedCourseId ? courseMap.get(selectedCourseId) || null : null;
   const visibleSelectedCourse = selectedCourse?.archived ? null : selectedCourse;
@@ -213,6 +217,17 @@ export function App() {
     }, 'Course renamed.');
   }
 
+  function handleRequestDeleteCourse(course: Course): void {
+    if (sessions.some((session) => session.courseId === course.id)) {
+      setCoursePendingDelete(course);
+      return;
+    }
+    void runAction(async () => {
+      await deleteCourse(course.id);
+      setSelectedCourseId((current) => (current === course.id ? null : current));
+    }, 'Course deleted.');
+  }
+
   async function handleDeleteCourse(): Promise<void> {
     if (!coursePendingDelete) return;
     const courseId = coursePendingDelete.id;
@@ -222,6 +237,19 @@ export function App() {
       setExpandedSessions(new Set());
       setSelectedCourseId((current) => (current === courseId ? null : current));
     }, 'Course deleted.');
+  }
+
+  async function handleRemoveEmptyCourses(): Promise<void> {
+    const emptyCourses = courses.filter((course) => !sessions.some((session) => session.courseId === course.id));
+    if (!emptyCourses.length) return;
+
+    await runAction(async () => {
+      for (const course of emptyCourses) {
+        await deleteCourse(course.id);
+      }
+      const emptyCourseIds = new Set(emptyCourses.map((course) => course.id));
+      setSelectedCourseId((current) => (current && emptyCourseIds.has(current) ? null : current));
+    }, `${emptyCourses.length} empty ${emptyCourses.length === 1 ? 'course' : 'courses'} removed.`);
   }
 
   async function handleDeleteSession(session: StudySession): Promise<void> {
@@ -361,9 +389,11 @@ export function App() {
           selectedCourseId={selectedCourseId}
           rows={dashboardRows}
           totalMs={totalPeriodMs}
+          emptyCourseCount={emptyCourseCount}
           onPeriodChange={setPeriod}
           onMonthChange={setSelectedMonth}
           onCourseSelect={setSelectedCourseId}
+          onRemoveEmptyCourses={() => void handleRemoveEmptyCourses()}
         />
 
         <CourseDetailPanel
@@ -391,7 +421,7 @@ export function App() {
           onArchiveCourse={(courseId, archived) =>
             void runAction(() => archiveCourse(courseId, archived), archived ? 'Course archived.' : 'Course restored.')
           }
-          onRemoveCourse={setCoursePendingDelete}
+          onRemoveCourse={handleRequestDeleteCourse}
         />
       </main>
 

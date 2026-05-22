@@ -1,4 +1,4 @@
-import { Clock3, Flame } from 'lucide-react';
+import { Clock3, Flame, Trash2 } from 'lucide-react';
 import { MonthStepper } from './MonthStepper';
 import { formatDuration, formatMonthLabel } from '../time';
 import type { Course } from '../types';
@@ -14,9 +14,11 @@ type DashboardPanelProps = {
   selectedCourseId: string | null;
   rows: DashboardRow[];
   totalMs: number;
+  emptyCourseCount: number;
   onPeriodChange: (period: 'week' | 'month') => void;
   onMonthChange: (selectedMonth: number) => void;
   onCourseSelect: (courseId: string) => void;
+  onRemoveEmptyCourses: () => void;
 };
 
 export function DashboardPanel({
@@ -25,9 +27,11 @@ export function DashboardPanel({
   selectedCourseId,
   rows,
   totalMs,
+  emptyCourseCount,
   onPeriodChange,
   onMonthChange,
   onCourseSelect,
+  onRemoveEmptyCourses,
 }: DashboardPanelProps) {
   return (
     <section className="panel" id="dashboard">
@@ -48,6 +52,16 @@ export function DashboardPanel({
             </button>
           </div>
           {period === 'month' && <MonthStepper selectedMonth={selectedMonth} onChange={onMonthChange} />}
+          <button
+            className="ghost-button cleanup-empty-button"
+            type="button"
+            disabled={!emptyCourseCount}
+            onClick={onRemoveEmptyCourses}
+            title="Remove all courses with no sessions"
+          >
+            <Trash2 size={18} />
+            Remove Empty
+          </button>
         </div>
       </div>
       <div className="total-strip">

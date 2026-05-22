@@ -42,6 +42,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
@@ -237,6 +242,10 @@ a:focus-visible {
 
 .bottom-data-actions .ghost-button {
   min-width: 132px;
+}
+
+.cleanup-empty-button {
+  min-width: 156px;
 }
 
 .notice {
