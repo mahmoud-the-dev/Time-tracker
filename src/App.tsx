@@ -1,11 +1,12 @@
 import type { DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, Play, Square } from 'lucide-react';
+import { Clock3, Square } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
 import { DashboardPanel, type DashboardRow } from './components/DashboardPanel';
 import { Modal } from './components/Modal';
 import { Notice } from './components/Notice';
+import { StartStudySessionModal } from './components/StartStudySessionModal';
 import { TimerPanel } from './components/TimerPanel';
 import { Topbar } from './components/Topbar';
 import {
@@ -52,7 +53,6 @@ export function App() {
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [startOpen, setStartOpen] = useState(false);
-  const [coursePickerId, setCoursePickerId] = useState('');
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [courseForm, setCourseForm] = useState<CourseForm>(INITIAL_FORM);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
@@ -139,9 +139,26 @@ export function App() {
   const breakMs = activeSession ? sumBreakDuration(activeBreaks, now) : 0;
   const canCorrectLatest = Boolean(latestEditable && (!activeSession || latestEditable.id === activeSession.id));
 
+  useEffect(() => {
+    function handleSpaceShortcut(event: KeyboardEvent): void {
+      if (event.code !== 'Space' || event.repeat || shouldIgnoreSpaceShortcut(event.target)) return;
+      if (startOpen || confirmEndOpen) return;
+
+      event.preventDefault();
+      if (!activeSession) {
+        openStart();
+      } else if (activeBreak) {
+        void runAction(resumeActiveSession, 'Session resumed.');
+      } else {
+        void runAction(pauseActiveSession, 'Session paused.');
+      }
+    }
+
+    window.addEventListener('keydown', handleSpaceShortcut);
+    return () => window.removeEventListener('keydown', handleSpaceShortcut);
+  }, [activeSession, activeBreak, startOpen, confirmEndOpen]);
+
   function openStart(): void {
-    const activeCourses = courses.filter((course) => !course.archived);
-    setCoursePickerId(activeCourses[0]?.id || '');
     setStartOpen(true);
   }
 
@@ -157,9 +174,9 @@ export function App() {
     });
   }
 
-  async function handleStart(): Promise<void> {
+  async function handleStart(courseId: string): Promise<void> {
     await runAction(async () => {
-      await createSession(coursePickerId);
+      await createSession(courseId);
       setStartOpen(false);
     }, 'Study session started.');
   }
@@ -366,30 +383,11 @@ export function App() {
       </main>
 
       {startOpen && (
-        <Modal title="Start Study Session" onClose={() => setStartOpen(false)}>
-          <div className="picker-list">
-            {courses
-              .filter((course) => !course.archived)
-              .map((course) => (
-                <label className="picker-option" key={course.id}>
-                  <input
-                    type="radio"
-                    name="course"
-                    checked={coursePickerId === course.id}
-                    onChange={() => setCoursePickerId(course.id)}
-                  />
-                  <span>{course.name}</span>
-                </label>
-              ))}
-          </div>
-          <div className="modal-actions">
-            <button onClick={() => setStartOpen(false)}>Cancel</button>
-            <button className="primary-action compact" disabled={!coursePickerId} onClick={() => void handleStart()}>
-              <Play size={17} />
-              Start
-            </button>
-          </div>
-        </Modal>
+        <StartStudySessionModal
+          courses={courses}
+          onClose={() => setStartOpen(false)}
+          onStart={(courseId) => void handleStart(courseId)}
+        />
       )}
 
       {confirmEndOpen && activeSession && (
@@ -454,4 +452,11 @@ function startOfMonth(date: Date): number {
 
 function hasStoredData(courses: Course[], sessions: StudySession[], breaks: StudyBreak[]): boolean {
   return courses.length > 0 || sessions.length > 0 || breaks.length > 0;
+}
+
+function shouldIgnoreSpaceShortcut(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  return Boolean(target.closest('input, textarea, select, button, [role="button"], [contenteditable="true"]'));
 }

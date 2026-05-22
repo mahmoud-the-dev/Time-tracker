@@ -885,9 +885,49 @@ th {
   margin: 0;
 }
 
+.subject-search {
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(22, 32, 29, 0.16);
+  border-radius: 8px;
+  color: #58635c;
+  background: rgba(22, 32, 29, 0.04);
+}
+
+.subject-search:focus-within {
+  border-color: rgba(230, 95, 79, 0.72);
+  background: #fffdf7;
+  box-shadow: 0 0 0 3px rgba(230, 95, 79, 0.13);
+}
+
+.subject-search input {
+  min-width: 0;
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  outline: 0;
+  color: var(--dark);
+  background: transparent;
+  font-weight: 900;
+}
+
+.subject-search input::placeholder {
+  color: rgba(30, 37, 40, 0.48);
+}
+
 .picker-list {
   display: grid;
   gap: 9px;
+}
+
+.subject-picker-list {
+  max-height: min(360px, 42vh);
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .picker-option {
@@ -899,6 +939,45 @@ th {
   border: 1px solid rgba(22, 32, 29, 0.14);
   border-radius: 8px;
   cursor: pointer;
+  background: rgba(22, 32, 29, 0.03);
+  font-weight: 900;
+}
+
+.subject-picker-option {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.subject-picker-option.active {
+  border-color: rgba(230, 95, 79, 0.82);
+  background:
+    linear-gradient(135deg, rgba(230, 95, 79, 0.14), rgba(240, 182, 75, 0.18)),
+    #fffdf7;
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 95, 79, 0.24),
+    0 10px 24px rgba(230, 95, 79, 0.1);
+}
+
+.enter-hint {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #fffdf7;
+  background: #16201d;
+}
+
+.picker-empty {
+  min-height: 82px;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(22, 32, 29, 0.22);
+  border-radius: 8px;
+  color: var(--muted);
   background: rgba(22, 32, 29, 0.03);
   font-weight: 900;
 }
