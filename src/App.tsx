@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, Download, Upload } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
 import { CourseManagementPanel } from './components/CourseManagementPanel';
+import { DeleteCourseModal } from './components/DeleteCourseModal';
 import { DashboardPanel, type DashboardRow } from './components/DashboardPanel';
 import { EndStudySessionModal } from './components/EndStudySessionModal';
 import { Notice } from './components/Notice';
@@ -13,6 +14,7 @@ import {
   addCourse,
   archiveCourse,
   createSession,
+  deleteCourse,
   deleteSession,
   endActiveSession,
   exportData,
@@ -20,7 +22,6 @@ import {
   getLatestEditableSession,
   importData,
   pauseActiveSession,
-  removeCourse,
   renameCourse,
   resumeActiveSession,
   seedInitialData,
@@ -56,6 +57,7 @@ export function App() {
   const [courseForm, setCourseForm] = useState<CourseForm>(INITIAL_FORM);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editingCourseName, setEditingCourseName] = useState('');
+  const [coursePendingDelete, setCoursePendingDelete] = useState<Course | null>(null);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
@@ -146,7 +148,7 @@ export function App() {
   useEffect(() => {
     function handleSpaceShortcut(event: KeyboardEvent): void {
       if (event.code !== 'Space' || event.repeat || shouldIgnoreSpaceShortcut(event.target)) return;
-      if (startOpen || confirmEndOpen) return;
+      if (startOpen || confirmEndOpen || coursePendingDelete) return;
 
       event.preventDefault();
       if (!activeSession) {
@@ -160,7 +162,7 @@ export function App() {
 
     window.addEventListener('keydown', handleSpaceShortcut);
     return () => window.removeEventListener('keydown', handleSpaceShortcut);
-  }, [activeSession, activeBreak, startOpen, confirmEndOpen]);
+  }, [activeSession, activeBreak, startOpen, confirmEndOpen, coursePendingDelete]);
 
   function openStart(): void {
     setStartOpen(true);
@@ -211,13 +213,15 @@ export function App() {
     }, 'Course renamed.');
   }
 
-  async function handleRemoveCourse(course: Course): Promise<void> {
-    const hasSessions = sessions.some((session) => session.courseId === course.id);
-    const message = hasSessions
-      ? `"${course.name}" has recorded study time. It will be archived and hidden from active lists, but history will be preserved. Continue?`
-      : `Remove "${course.name}" permanently?`;
-    if (!window.confirm(message)) return;
-    await runAction(async () => removeCourse(course.id), hasSessions ? 'Course archived.' : 'Course removed.');
+  async function handleDeleteCourse(): Promise<void> {
+    if (!coursePendingDelete) return;
+    const courseId = coursePendingDelete.id;
+    await runAction(async () => {
+      await deleteCourse(courseId);
+      setCoursePendingDelete(null);
+      setExpandedSessions(new Set());
+      setSelectedCourseId((current) => (current === courseId ? null : current));
+    }, 'Course deleted.');
   }
 
   async function handleDeleteSession(session: StudySession): Promise<void> {
@@ -387,7 +391,7 @@ export function App() {
           onArchiveCourse={(courseId, archived) =>
             void runAction(() => archiveCourse(courseId, archived), archived ? 'Course archived.' : 'Course restored.')
           }
-          onRemoveCourse={(course) => void handleRemoveCourse(course)}
+          onRemoveCourse={setCoursePendingDelete}
         />
       </main>
 
@@ -432,6 +436,15 @@ export function App() {
               setConfirmEndOpen(false);
             }, 'Session ended.')
           }
+        />
+      )}
+
+      {coursePendingDelete && (
+        <DeleteCourseModal
+          course={coursePendingDelete}
+          sessionCount={sessions.filter((session) => session.courseId === coursePendingDelete.id).length}
+          onCancel={() => setCoursePendingDelete(null)}
+          onDelete={() => void handleDeleteCourse()}
         />
       )}
     </div>

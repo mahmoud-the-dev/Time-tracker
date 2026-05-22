@@ -220,7 +220,22 @@ export async function removeCourse(courseId: string): Promise<void> {
 }
 
 export async function deleteCourse(courseId: string): Promise<void> {
-  await removeCourse(courseId);
+  await transact(['courses', 'sessions', 'breaks'], 'readwrite', async ({ courses, sessions, breaks }) => {
+    const course = await get<'courses'>(courses, courseId);
+    if (!course) throw new Error('Course not found.');
+
+    const courseSessions = (await getAll<'sessions'>(sessions)).filter((session) => session.courseId === courseId);
+    const courseSessionIds = new Set(courseSessions.map((session) => session.id));
+    const courseBreaks = (await getAll<'breaks'>(breaks)).filter((item) => courseSessionIds.has(item.sessionId));
+
+    for (const item of courseBreaks) {
+      await del(breaks, item.id);
+    }
+    for (const session of courseSessions) {
+      await del(sessions, session.id);
+    }
+    await del(courses, courseId);
+  });
 }
 
 export async function createSession(courseId: string): Promise<void> {

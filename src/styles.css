@@ -1001,7 +1001,7 @@ th {
   gap: 10px;
 }
 
-.modal-actions button:first-child {
+.modal-actions button:first-child:not(.primary-action) {
   background: rgba(22, 32, 29, 0.08);
   color: var(--dark);
 }
