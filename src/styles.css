@@ -83,6 +83,48 @@ a:focus-visible {
   mask-image: linear-gradient(to bottom, black, transparent 72%);
 }
 
+.drop-import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #fffdf7;
+  background: rgba(11, 17, 15, 0.68);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.drop-import-overlay div {
+  width: min(460px, 100%);
+  min-height: 150px;
+  padding: 28px;
+  border: 2px dashed rgba(255, 253, 247, 0.72);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  text-align: center;
+  background: rgba(22, 32, 29, 0.72);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.drop-import-overlay strong,
+.drop-import-overlay span {
+  display: block;
+}
+
+.drop-import-overlay strong {
+  font-size: 28px;
+}
+
+.drop-import-overlay span {
+  color: rgba(255, 253, 247, 0.76);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .topbar {
   width: min(1500px, calc(100% - 44px));
   min-height: 78px;

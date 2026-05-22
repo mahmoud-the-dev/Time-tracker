@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, Play, Square } from 'lucide-react';
 import { CourseDetailPanel } from './components/CourseDetailPanel';
@@ -60,7 +60,9 @@ export function App() {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const [draggingFile, setDraggingFile] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
 
   useEffect(() => {
     void seedInitialData().then(loadData);
@@ -206,6 +208,15 @@ export function App() {
   }
 
   async function handleImportFile(file: File): Promise<void> {
+    if (hasStoredData(courses, sessions, breaks)) {
+      const confirmed = window.confirm(
+        'Importing this file will overwrite all of your current study tracker data. This cannot be undone. Continue?',
+      );
+      if (!confirmed) {
+        if (importInputRef.current) importInputRef.current.value = '';
+        return;
+      }
+    }
     await runAction(async () => {
       const text = await file.text();
       let data: unknown;
@@ -221,6 +232,34 @@ export function App() {
       setConfirmEndOpen(false);
     }, 'Data imported.');
     if (importInputRef.current) importInputRef.current.value = '';
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>): void {
+    if (!event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setDraggingFile(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>): void {
+    if (!event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>): void {
+    if (!event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDraggingFile(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setDraggingFile(false);
+    const file = event.dataTransfer.files[0];
+    if (file) void handleImportFile(file);
   }
 
   function handleUpdateSession(field: EditableSessionField, value: number): void {
@@ -242,7 +281,22 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {draggingFile && (
+        <div className="drop-import-overlay">
+          <div>
+            <strong>Drop to import</strong>
+            <span>Your current data will be overwritten after confirmation.</span>
+          </div>
+        </div>
+      )}
+
       <Topbar
         importInputRef={importInputRef}
         onExport={() => void handleExport()}
@@ -396,4 +450,8 @@ function groupBy<TItem, TKey extends keyof TItem & string>(items: TItem[], key: 
 
 function startOfMonth(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+}
+
+function hasStoredData(courses: Course[], sessions: StudySession[], breaks: StudyBreak[]): boolean {
+  return courses.length > 0 || sessions.length > 0 || breaks.length > 0;
 }
