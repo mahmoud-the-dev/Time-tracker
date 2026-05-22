@@ -84,12 +84,6 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [error]);
 
-  useEffect(() => {
-    if (!selectedCourseId && courses.length) {
-      setSelectedCourseId(courses[0].id);
-    }
-  }, [courses, selectedCourseId]);
-
   async function loadData(): Promise<void> {
     const data = await getAppData();
     setCourses(data.courses);
@@ -110,6 +104,7 @@ export function App() {
   }
 
   const courseMap = useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses]);
+  const activeCourses = useMemo(() => courses.filter((course) => !course.archived), [courses]);
   const breaksBySession = useMemo(() => groupBy(breaks, 'sessionId'), [breaks]);
   const activeSession = sessions.find((session) => !session.endedAt) || null;
   const activeCourse = activeSession ? courseMap.get(activeSession.courseId) || null : null;
@@ -119,24 +114,34 @@ export function App() {
   const latestEditableBreaks = latestEditable ? breaksBySession.get(latestEditable.id) || [] : [];
   const periodRange = period === 'week' ? getWeekRange(now) : getMonthRange(selectedMonth);
   const dashboardRows = useMemo(
-    () => buildDashboardRows(courses, sessions, breaksBySession, periodRange),
-    [courses, sessions, breaksBySession, periodRange],
+    () => buildDashboardRows(activeCourses, sessions, breaksBySession, periodRange),
+    [activeCourses, sessions, breaksBySession, periodRange],
   );
   const totalPeriodMs = dashboardRows.reduce((total, row) => total + row.durationMs, 0);
   const selectedCourse = selectedCourseId ? courseMap.get(selectedCourseId) || null : null;
+  const visibleSelectedCourse = selectedCourse?.archived ? null : selectedCourse;
+  const visibleSelectedCourseId = visibleSelectedCourse?.id || null;
   const monthRange = getMonthRange(selectedMonth);
   const selectedCourseSessions = useMemo(
     () =>
       sessions
-        .filter((session) => session.courseId === selectedCourseId && session.endedAt)
+        .filter((session) => session.courseId === visibleSelectedCourseId && session.endedAt)
         .filter((session) => clampPeriodOverlap(session.startedAt, session.endedAt || 0, monthRange.start, monthRange.end) > 0)
         .sort((a, b) => b.startedAt - a.startedAt),
-    [sessions, selectedCourseId, monthRange.start, monthRange.end],
+    [sessions, visibleSelectedCourseId, monthRange.start, monthRange.end],
   );
 
   const activeStudyMs = activeSession ? sumStudyDuration(activeSession, activeBreaks, now) : 0;
   const breakMs = activeSession ? sumBreakDuration(activeBreaks, now) : 0;
   const canCorrectLatest = Boolean(latestEditable && (!activeSession || latestEditable.id === activeSession.id));
+
+  useEffect(() => {
+    if (selectedCourseId && courseMap.get(selectedCourseId)?.archived) {
+      setSelectedCourseId(activeCourses[0]?.id || null);
+    } else if (!selectedCourseId && activeCourses.length) {
+      setSelectedCourseId(activeCourses[0].id);
+    }
+  }, [activeCourses, courseMap, selectedCourseId]);
 
   useEffect(() => {
     function handleSpaceShortcut(event: KeyboardEvent): void {
@@ -358,7 +363,7 @@ export function App() {
         />
 
         <CourseDetailPanel
-          selectedCourse={selectedCourse}
+          selectedCourse={visibleSelectedCourse}
           selectedMonth={selectedMonth}
           sessions={selectedCourseSessions}
           breaksBySession={breaksBySession}
