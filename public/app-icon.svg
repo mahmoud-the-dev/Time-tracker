@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Study Time Tracker">
+  <rect width="512" height="512" rx="96" fill="#16201d"/>
+  <circle cx="256" cy="256" r="166" fill="#fffdf7"/>
+  <circle cx="256" cy="256" r="130" fill="#e9ece6"/>
+  <path d="M256 116a140 140 0 1 0 0 280 140 140 0 0 0 0-280Zm0 244a104 104 0 1 1 0-208 104 104 0 0 1 0 208Z" fill="#546a42"/>
+  <path d="M256 170c12 0 22 10 22 22v58l52 30a22 22 0 0 1-22 38l-63-37a22 22 0 0 1-11-19v-70c0-12 10-22 22-22Z" fill="#e65f4f"/>
+  <path d="M150 88h212c34 0 62 28 62 62v12H88v-12c0-34 28-62 62-62Z" fill="#f0b64b"/>
+</svg>

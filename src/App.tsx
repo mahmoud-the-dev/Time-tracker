@@ -443,7 +443,7 @@ export function App() {
           rel="noreferrer"
         >
           <Github size={18} />
-          GitHub repository
+          GitHub repository (online)
         </a>
         <input
           ref={importInputRef}
