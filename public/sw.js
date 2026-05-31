@@ -1,9 +1,11 @@
-const CACHE_VERSION = 'study-time-tracker-v2';
+const CACHE_VERSION = 'study-time-tracker-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/app-icon.svg',
+  '/logo.png',
+  '/time-tracker-og-image.png',
 ];
 
 self.addEventListener('install', (event) => {

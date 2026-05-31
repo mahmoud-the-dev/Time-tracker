@@ -162,10 +162,15 @@ a:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 8px;
-  color: #16201d;
-  background:
-    linear-gradient(135deg, #f8d98b, #e65f4f 112%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+  overflow: hidden;
+  background: transparent;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .brand strong,

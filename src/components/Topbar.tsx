@@ -1,11 +1,9 @@
-import { BookOpen } from 'lucide-react';
-
 export function Topbar() {
   return (
     <header className="topbar">
       <div className="brand">
         <div className="brand-mark">
-          <BookOpen size={24} />
+          <img className="brand-logo" src="/logo.png" alt="" aria-hidden="true" />
         </div>
         <div className="brand-text">
           <strong className="brand-title">Study Clock</strong>
